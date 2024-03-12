@@ -1,0 +1,256 @@
+Program.Sub.Preflight.Start
+	V.Global.bIssue.Declare
+	V.Global.sMessage.Declare
+	V.Global.sOrderNo.Declare
+	V.Global.sOrderLn.Declare
+	V.Global.dPassedDate.Declare
+	V.Global.sPart.Declare
+	V.Global.sLoc.Declare
+	V.Global.fQtyOrdered.Declare
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+		F.Intrinsic.Control.Case(11870)
+			F.Intrinsic.Control.If(V.Passed.000024,=,00000000)
+				V.Global.sMessage.Set("No Due Date entered.")
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Date.ConvertDString(V.Passed.000024,"YYYYMMDD",V.Global.dPassedDate)
+				F.Intrinsic.Control.CallSub(CheckWeekends)
+			F.Intrinsic.Control.EndIf
+			
+		F.Intrinsic.Control.Case(12230)
+			F.Intrinsic.Control.If(V.Passed.000011,=,00000000)
+				V.Global.bIssue.Set(True)
+				V.Passed.777777.Set(1)
+				F.Intrinsic.String.Build("Date Validation:{0}No Prom Date entered.",V.Ambient.NewLine,V.Global.sMessage)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Date.ConvertDString(V.Passed.000011,"YYYYMMDD",V.Global.dPassedDate)
+				F.Intrinsic.Control.CallSub(CheckWeekends)
+			F.Intrinsic.Control.EndIf
+			
+			F.Intrinsic.Control.If(V.Passed.000052,=,"")
+				V.Global.bIssue.Set(True)
+				V.Passed.777777.Set(1)
+				F.Intrinsic.Control.If(V.Global.sMessage,=,"")
+					F.Intrinsic.String.Build("Part Validation:{0}No Part entered.",V.Ambient.NewLine,V.Global.sMessage)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.String.Build("{0}{1}{1}Part Validation:{1}No Part entered.",V.Global.sMessage,V.Ambient.NewLine,V.Global.sMessage)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.LPad(V.Passed.000060,"0",7,V.Global.sOrderNo)
+				F.Intrinsic.String.LPad(V.Passed.000051,"0",3,V.Global.sOrderLn)
+				F.Intrinsic.String.RPad(V.Global.sOrderLn,"0",4,V.Global.sOrderLn)
+				F.Intrinsic.String.GSSPartString(V.Passed.000052,V.Passed.000053,V.Global.sPart)
+				V.Global.sLoc.Set(V.Passed.000054)
+				V.Global.fQtyOrdered.Set(V.Passed.000007)
+				F.Intrinsic.Control.CallSub(CheckOrderQty)
+				F.Intrinsic.Control.CallSub(CheckRequirements)
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+	
+	F.Intrinsic.Control.If(V.Global.bIssue)
+		F.Intrinsic.UI.Msgbox(V.Global.sMessage,"Order Line Validations")
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.CheckWeekends.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.iWeekday.Declare
+	V.Local.sWeekend.Declare
+	
+	F.Intrinsic.Date.Weekday(V.Global.dPassedDate,V.Local.iWeekday)
+	F.Intrinsic.Control.If(V.Local.iWeekday,=,1)
+		V.Local.sWeekend.Set("Sunday")
+		F.Intrinsic.String.Build("Date Validation:{0}The date entered ({1}) is a Sunday, please update.",V.Ambient.NewLine,V.Global.dPassedDate,V.Global.sMessage)
+	F.Intrinsic.Control.ElseIf(V.Local.iWeekday,=,7)
+		V.Local.sWeekend.Set("Saturday")
+		F.Intrinsic.String.Build("Date Validation:{0}The date entered ({1}) is a Saturday, please update.",V.Ambient.NewLine,V.Global.dPassedDate,V.Global.sMessage)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(CheckHolidays)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.SelectCase(V.Local.iWeekday)
+		F.Intrinsic.Control.CaseAny(1,7)
+			V.Global.bIssue.Set(True)
+			V.Passed.777777.Set(1)
+			F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+				F.Intrinsic.Control.Case(11870)
+					V.Passed.000024.Set(00000000)
+				F.Intrinsic.Control.Case(12230)
+					V.Passed.000011.Set(00000000)
+			F.Intrinsic.Control.EndSelect
+	F.Intrinsic.Control.EndSelect
+	
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.CheckWeekends.End
+
+Program.Sub.CheckHolidays.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.iCnt.Declare
+	V.Local.sHoliday.Declare
+	V.Local.sMsg.Declare
+	
+	F.ODBC.Connection!con.OpenCompanyConnection
+	
+	F.Data.DataTable.CreateFromSQL("dtHolidays","con","Select * From V_Holiday_Sched;")
+	F.Intrinsic.Control.For(V.Local.iCnt,1,30,1)
+		F.Intrinsic.String.Build("HOLIDAY_{0}",V.Local.iCnt,V.Local.sHoliday)
+		F.Intrinsic.Control.If(V.DataTable.dtHolidays(0).[V.Local.sHoliday]!FieldVal,<>,1/1/1900)
+			F.Intrinsic.Control.If(V.DataTable.dtHolidays(0).[V.Local.sHoliday]!FieldVal,=,V.Global.dPassedDate)
+				V.Local.sHoliday.Set("Holiday")
+				F.Intrinsic.Control.ExitFor(V.Local.iCnt)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+	
+	F.Intrinsic.Control.If(V.Local.sHoliday,=,"Holiday")
+		V.Global.bIssue.Set(True)
+		V.Passed.777777.Set(1)
+		F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+			F.Intrinsic.Control.Case(11870)
+				V.Passed.000024.Set(00000000)
+			F.Intrinsic.Control.Case(12230)
+				V.Passed.000011.Set(00000000)
+		F.Intrinsic.Control.EndSelect
+		F.Intrinsic.String.Build("Date Validation:{0}The date entered ({1}) is a Holiday, please update.",V.Ambient.NewLine,V.Global.dPassedDate,V.Global.sMessage)
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Connection!con.Close
+	
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.CheckHolidays.End
+
+Program.Sub.CheckOrderQty.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.sSQL.Declare
+	V.Local.fQtySafety.Declare
+	V.Local.sMSg.Declare
+	
+	F.ODBC.Connection!con.OpenCompanyConnection
+	
+	F.Intrinsic.String.Build("Select * From Order_Booking Where Order_No = '{0}' And Order_Line = '{1}';",V.Global.sOrderNo,V.Global.sOrderLn,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtBooking","con",V.Local.sSQL,True)
+	F.Intrinsic.Control.If(V.DataTable.dtBooking.RowCount,=,0)
+		F.Intrinsic.String.Build("Select Qty_Safety From Inventory_Mstr Where Part = '{0}' And Location = '{1}';",V.Global.sPart,V.Global.sLoc,V.Local.sSQL)
+		F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.fQtySafety)
+		F.Intrinsic.Control.If(V.Global.fQtyOrdered,<,V.Local.fQtySafety)
+			V.Global.bIssue.Set(True)
+			V.Passed.000007.Set(V.Local.fQtySafety)
+			V.Global.fQtyOrdered.Set(V.Local.fQtySafety)
+			F.Intrinsic.Control.If(V.Global.sMessage,=,"")
+				F.Intrinsic.String.Build("Order Qty Validation:{0}The minimum order quantity for {1} is {2}. Order Qty will be updated.",V.Ambient.NewLine,V.Global.sPart.Trim,V.Local.fQtySafety,V.Global.sMessage)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Build("{0}{1}{1}Order Qty Validation:{1}The minimum order quantity for {2} is {3}. Order Qty will be updated.",V.Global.sMessage,V.Ambient.NewLine,V.Global.sPart.Trim,V.Local.fQtySafety,V.Global.sMessage)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	F.Data.DataTable.Close("dtBooking")
+	
+	F.ODBC.Connection!con.Close
+	
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.CheckOrderQty.End
+
+Program.Sub.CheckRequirements.Start
+	F.Intrinsic.Control.Try
+	V.Local.sError.Declare
+	
+	V.Local.sSQL.Declare
+	V.Local.iLeadTime.Declare
+	V.Local.fQtyOnHand.Declare
+	V.Local.fQtyReqd.Declare
+	V.Local.fQtyUnsched.Declare
+	V.Local.fNet.Declare
+	V.Local.dPromDate.Declare
+	V.Local.bNotHoliday.Declare
+	V.Local.sHoliday.Declare
+	V.Local.iCnt.Declare
+	V.Local.sRet.Declare
+	
+	F.ODBC.Connection!con.OpenCompanyConnection
+	
+	F.Intrinsic.String.Build("Select Qty_OnHand+Qty_OnOrder_WO As OnHand,Qty_Required,Time_Material_Lead From Inventory_Mstr Where Part = '{0}' And Location = '{1}';",V.Global.sPart,V.Global.sLoc,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtNet","con",V.Local.sSQL,True)
+	F.Intrinsic.Control.If(V.DataTable.dtNet(0).Time_Material_Lead!FieldVal,=,0)
+		V.Local.iLeadTime.Set(20)
+		F.Intrinsic.UI.Inputbox("Enter Lead Time:","Lead Time","0",V.Local.sRet)
+		V.Local.iLeadTime.Set(V.Local.sRet.Long)
+		F.Intrinsic.String.Build("Update Inventory_Mstr Set Time_Material_Lead = {0} Where Part = '{1}' And Location = '{2}';",V.Local.iLeadTime,V.Global.sPart,V.Global.sLoc,V.Local.sSQL)
+		F.ODBC.Connection!con.Execute(V.Local.sSQL)
+	F.Intrinsic.Control.Else
+		V.Local.iLeadTime.Set(V.DataTable.dtNet(0).Time_Material_Lead!FieldVal)
+	F.Intrinsic.Control.EndIf
+	V.Local.fQtyOnHand.Set(V.DataTable.dtNet(0).OnHand!FieldVal)
+	V.Local.fQtyReqd.Set(V.DataTable.dtNet(0).Qty_Required!FieldVal)
+	F.Intrinsic.String.Build("Select Sum(B.Qty_Open) From V_Order_Lines A Join V_OE_Ship_Sched B On A.Order_No = B.Order_No Where Part = '{0}' And Location = '{1}' And B.Date_Due = '1900-01-01' Group By Part,Location;",V.Global.sPart,V.Global.sLoc,V.Local.sSQL)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.fQtyUnsched)
+	F.Intrinsic.Math.Sub(V.Local.fQtyReqd,V.Local.fQtyUnsched,V.Local.fQtyReqd)
+	F.Intrinsic.Math.Sub(V.Local.fQtyOnHand,V.Local.fQtyReqd,V.Local.fNet)
+	F.Intrinsic.Control.If(V.Global.fQtyOrdered,>,V.Local.fNet)
+		F.Intrinsic.Date.DateAddWorkdays(V.Ambient.Date,V.Local.iLeadTime,127,V.Local.dPromDate)
+		'Check for Holidays
+		F.Intrinsic.Control.DoUntil(V.Local.bNotHoliday,=,True)
+			V.Local.bNotHoliday.Set(True)
+			F.Data.DataTable.CreateFromSQL("dtHolidays","con","Select * From V_Holiday_Sched;")
+			F.Intrinsic.Control.For(V.Local.iCnt,1,30,1)
+				F.Intrinsic.String.Build("HOLIDAY_{0}",V.Local.iCnt,V.Local.sHoliday)
+				F.Intrinsic.Control.If(V.DataTable.dtHolidays(0).[V.Local.sHoliday]!FieldVal,<>,1/1/1900)
+					F.Intrinsic.Control.If(V.DataTable.dtHolidays(0).[V.Local.sHoliday]!FieldVal,=,V.Local.dPromDate)
+						V.Local.bNotHoliday.Set(False)
+						F.Intrinsic.Date.DateAddWorkdays(V.Local.dPromDate,1,127,V.Local.dPromDate)
+						F.Data.DataTable.Close("dtHolidays")
+						F.Intrinsic.Control.ExitFor(V.Local.iCnt)
+					F.Intrinsic.Control.EndIf
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.Next(V.Local.iCnt)
+		F.Intrinsic.Control.Loop
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Local.bNotHoliday)
+		F.Intrinsic.Control.If(V.Global.dPassedDate,<,V.Local.dPromDate)
+			V.Global.bIssue.Set(True)
+			V.Passed.000011.Set(V.Local.dPromDate.FormatYYYYMMDD)
+			F.Intrinsic.Control.If(V.Global.sMessage,=,"")
+				F.Intrinsic.String.Build("Requirement Validation:{0}Promise Date was updated to {1}.",V.Ambient.NewLine,V.Local.dPromDate,V.Global.sMessage)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Build("{0}{1}{1}Requirement Validation:{1}Promise Date was updated to {2}.",V.Global.sMessage,V.Ambient.NewLine,V.Local.dPromDate,V.Global.sMessage)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Connection!con.Close
+	
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+		F.Intrinsic.UI.Msgbox(V.Local.sError)
+		F.Intrinsic.Control.End 
+	F.Intrinsic.Control.EndTry
+Program.Sub.CheckRequirements.End
